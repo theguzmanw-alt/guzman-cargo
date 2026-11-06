@@ -6,6 +6,11 @@ from datetime import datetime
 ARCHIVO = "guias.csv"
 COLUMNAS = ["Guia","Fecha","Remitente","Destinatario","Origen","Destino","Peso","Valor","Estado","Telefono"]
 
+# === CAMBIA ESTAS 3 CLAVES POR LAS TUYAS, SOLO TU LAS SABES ===
+CLAVE_JEFE = "jefe2026"
+CLAVE_REPARTIDOR = "Repartidor2026"
+CLAVE_CLIENTE = "Cliente2026"
+
 def cargar_df():
     if not os.path.exists(ARCHIVO):
         df = pd.DataFrame(columns=COLUMNAS)
@@ -44,19 +49,13 @@ def actualizar(codigo, nuevo_estado):
     return f"✅ Guía {codigo.upper()} actualizada a: {nuevo_estado}", df.values.tolist()
 
 def login(usuario, clave):
-    usuarios = {
-        "jefe": ("jefe123", "jefe"),
-        "repartidor": ("repa123", "repartidor"),
-        "cliente": ("cliente123", "cliente")
-    }
-    if usuario in usuarios and usuarios[usuario][0] == clave:
-        rol = usuarios[usuario][1]
-        if rol == "jefe":
-            return f"✅ Bienvenido JEFE {usuario}", gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=False)
-        elif rol == "repartidor":
-            return f"✅ Bienvenido REPARTIDOR {usuario}", gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True), gr.update(visible=False)
-        else:
-            return f"✅ Bienvenido CLIENTE {usuario}", gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+    u = usuario.strip().lower()
+    if u == "jefe" and clave == CLAVE_JEFE:
+        return "✅ Bienvenido JEFE", gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=False)
+    if u == "repartidor" and clave == CLAVE_REPARTIDOR:
+        return "✅ Bienvenido REPARTIDOR", gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True), gr.update(visible=False)
+    if u == "cliente" and clave == CLAVE_CLIENTE:
+        return "✅ Bienvenido CLIENTE", gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
     return "❌ Usuario o clave incorrecta", gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
 
 with gr.Blocks(title="GUZMAN CARGO") as demo:
@@ -64,10 +63,10 @@ with gr.Blocks(title="GUZMAN CARGO") as demo:
     
     with gr.Column() as login_box:
         gr.Markdown("### 🔐 Iniciar Sesión")
-        user_in = gr.Textbox(label="Usuario", placeholder="jefe / repartidor / cliente")
-        pass_in = gr.Textbox(label="Clave", type="password", placeholder="jefe123 / repa123 / cliente123")
+        user_in = gr.Textbox(label="Usuario", placeholder="Escribe tu usuario")
+        pass_in = gr.Textbox(label="Clave", type="password", placeholder="Escribe tu clave")
         btn_login = gr.Button("Entrar", variant="primary")
-        msg_login = gr.Textbox(label="Resultado Login")
+        msg_login = gr.Textbox(label="Resultado")
 
     with gr.Tab("Nueva Guía", visible=False) as tab_nueva:
         remitente = gr.Textbox(label="Remitente")
