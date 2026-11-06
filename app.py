@@ -1,69 +1,106 @@
 import gradio as gr
 import pandas as pd
-import os, datetime
+import os
+from datetime import datetime
 
-DATA = "guias.csv"
-if not os.path.exists(DATA):
-    pd.DataFrame(columns=["Guia","Fecha","Remitente","Destinatario","Origen","Destino","Peso","Valor","Estado","Telefono"]).to_csv(DATA, index=False)
+ARCHIVO = "guias.csv"
+COLUMNAS = ["Guia","Fecha","Remitente","Destinatario","Origen","Destino","Peso","Valor","Estado","Telefono"]
 
-def guardar_guia(rem, dest, origen, destino, peso, valor, tel):
-    df = pd.read_csv(DATA)
-    guia = f"GC-{len(df)+1001}"
-    fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    nuevo = pd.DataFrame([[guia, fecha, rem, dest, origen, destino, peso, valor, "En Bodega", tel]], columns=df.columns)
-    df = pd.concat([df, nuevo], ignore_index=True)
-    df.to_csv(DATA, index=False)
-    return f"GUÍA CREADA: {guia}\nRemitente: {rem}\nDestino: {destino}\nValor: ${valor}", df
+def cargar_df():
+    if not os.path.exists(ARCHIVO):
+        df = pd.DataFrame(columns=COLUMNAS)
+        df.to_csv(ARCHIVO, index=False)
+        return df
+    return pd.read_csv(ARCHIVO, dtype=str).fillna("")
 
-def buscar_guia(codigo):
-    df = pd.read_csv(DATA)
-    r = df[df["Guia"]==codigo.strip().upper()]
+def guardar_df(df):
+    df.to_csv(ARCHIVO, index=False)
+
+def crear_guia(remitente, destinatario, origen, destino, peso, valor, telefono):
+    df = cargar_df()
+    num = len(df) + 1001
+    codigo = f"GC-{num}"
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+    nueva = pd.DataFrame([[codigo, fecha, remitente, destinatario, origen, destino, peso, valor, "En Bodega", telefono]], columns=COLUMNAS)
+    df = pd.concat([df, nueva], ignore_index=True)
+    guardar_df(df)
+    return f"✅ Guía creada: {codigo} | {remitente} -> {destinatario} | Estado: En Bodega", df.values.tolist()
+
+def rastrear(codigo):
+    df = cargar_df()
+    r = df[df["Guia"] == codigo.strip().upper()]
     if r.empty:
-        return "Guía no encontrada. Verifica el código. Ej: GC-1001"
+        return "❌ Guía no encontrada. Verifica el código Ej: GC-1001"
     fila = r.iloc[0]
-    return f"GUÍA {fila['Guia']}\n\nDe: {fila['Remitente']} ({fila['Origen']}) -> Para: {fila['Destinatario']} ({fila['Destino']})\nPeso: {fila['Peso']} kg | Valor: ${fila['Valor']}\nEstado: {fila['Estado']}\nFecha: {fila['Fecha']}"
+    return f"📦 GUÍA {fila['Guia']}\nFecha: {fila['Fecha']}\nDe: {fila['Remitente']} ({fila['Origen']})\nPara: {fila['Destinatario']} ({fila['Destino']})\nPeso: {fila['Peso']} kg | Valor a cobrar: ${fila['Valor']}\nESTADO: {fila['Estado']}"
 
-def actualizar_estado(codigo, nuevo_estado):
-    df = pd.read_csv(DATA)
-    idx = df[df["Guia"]==codigo.strip().upper()].index
-    if len(idx)==0:
-        return "Guía no encontrada", df
+def actualizar(codigo, nuevo_estado):
+    df = cargar_df()
+    idx = df[df["Guia"] == codigo.strip().upper()].index
+    if len(idx) == 0:
+        return "❌ Guía no encontrada", df.values.tolist()
     df.loc[idx, "Estado"] = nuevo_estado
-    df.to_csv(DATA, index=False)
-    return f"Guía {codigo} actualizada a: {nuevo_estado}", df
+    guardar_df(df)
+    return f"✅ Guía {codigo.upper()} actualizada a: {nuevo_estado}", df.values.tolist()
 
-def cargar_tabla():
-    return pd.read_csv(DATA)
+def login(usuario, clave):
+    usuarios = {
+        "jefe": ("jefe123", "jefe"),
+        "repartidor": ("repa123", "repartidor"),
+        "cliente": ("cliente123", "cliente")
+    }
+    if usuario in usuarios and usuarios[usuario][0] == clave:
+        rol = usuarios[usuario][1]
+        if rol == "jefe":
+            return f"✅ Bienvenido JEFE {usuario}", gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=False)
+        elif rol == "repartidor":
+            return f"✅ Bienvenido REPARTIDOR {usuario}", gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True), gr.update(visible=False)
+        else:
+            return f"✅ Bienvenido CLIENTE {usuario}", gr.update(visible=False), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+    return "❌ Usuario o clave incorrecta", gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
 
 with gr.Blocks(title="GUZMAN CARGO") as demo:
-    gr.Markdown("# GUZMAN CARGO - Sistema de Logística\n### Cartagena | Guias, Tracking y Control")
-    with gr.Tab("Nueva Guía"):
-        rem = gr.Textbox(label="Remitente")
-        dest = gr.Textbox(label="Destinatario")
+    gr.Markdown("# GUZMAN CARGO - Sistema de Logística\n### Cartagena | Guías, Tracking y Control")
+    
+    with gr.Column() as login_box:
+        gr.Markdown("### 🔐 Iniciar Sesión")
+        user_in = gr.Textbox(label="Usuario", placeholder="jefe / repartidor / cliente")
+        pass_in = gr.Textbox(label="Clave", type="password", placeholder="jefe123 / repa123 / cliente123")
+        btn_login = gr.Button("Entrar", variant="primary")
+        msg_login = gr.Textbox(label="Resultado Login")
+
+    with gr.Tab("Nueva Guía", visible=False) as tab_nueva:
+        remitente = gr.Textbox(label="Remitente")
+        destinatario = gr.Textbox(label="Destinatario")
         origen = gr.Textbox(label="Origen", value="Cartagena")
         destino = gr.Textbox(label="Destino")
-        peso = gr.Number(label="Peso (kg)")
-        valor = gr.Number(label="Valor a cobrar $")
-        tel = gr.Textbox(label="Teléfono cliente")
-        btn = gr.Button("Generar Guía", variant="primary")
-        out = gr.Textbox(label="Resultado", lines=6)
-        tabla = gr.Dataframe(value=cargar_tabla, label="Todas las Guías")
-        btn.click(guardar_guia, [rem, dest, origen, destino, peso, valor, tel], [out, tabla])
-    with gr.Tab("Rastrear"):
-        cod = gr.Textbox(label="Código de Guía Ej: GC-1001", placeholder="GC-1001")
-        btn2 = gr.Button("Buscar", variant="primary")
-        out2 = gr.Textbox(label="Estado del envío", lines=8)
-        btn2.click(buscar_guia, cod, out2)
-    with gr.Tab("Actualizar Estado"):
-        cod2 = gr.Textbox(label="Código Guía")
-        estado = gr.Dropdown(["En Bodega","En Camino","En Reparto","Entregado","Devuelto"], label="Nuevo Estado")
-        btn3 = gr.Button("Actualizar", variant="primary")
-        out3 = gr.Textbox(label="Resultado")
-        tabla2 = gr.Dataframe(value=cargar_tabla)
-        btn3.click(actualizar_estado, [cod2, estado], [out3, tabla2])
-    with gr.Tab("Todas las Guías"):
-        btn4 = gr.Button("Actualizar Tabla")
-        tabla3 = gr.Dataframe(value=cargar_tabla)
-        btn4.click(cargar_tabla, None, tabla3)
+        peso = gr.Number(label="Peso (kg)", value=0)
+        valor = gr.Number(label="Valor a cobrar $", value=0)
+        telefono = gr.Textbox(label="Teléfono cliente")
+        btn_crear = gr.Button("Generar Guía", variant="primary")
+        res_crear = gr.Textbox(label="Resultado")
+        tabla1 = gr.Dataframe(headers=COLUMNAS, label="Todas las Guías")
+
+    with gr.Tab("Rastrear", visible=False) as tab_rastrear:
+        cod_r = gr.Textbox(label="Código de Guía Ej: GC-1001", placeholder="GC-1001")
+        btn_r = gr.Button("Buscar", variant="primary")
+        res_r = gr.Textbox(label="Estado del envío", lines=6)
+
+    with gr.Tab("Actualizar Estado", visible=False) as tab_actualizar:
+        cod_a = gr.Textbox(label="Código Guía")
+        estado_a = gr.Dropdown(["En Bodega","En Camino","En Reparto","Entregado","Devuelto"], value="En Bodega", label="Nuevo Estado")
+        btn_a = gr.Button("Actualizar", variant="primary")
+        res_a = gr.Textbox(label="Resultado")
+        tabla2 = gr.Dataframe(headers=COLUMNAS, label="Todas las Guías")
+
+    with gr.Tab("Todas las Guías", visible=False) as tab_todas:
+        btn_t = gr.Button("Actualizar Tabla")
+        tabla3 = gr.Dataframe(headers=COLUMNAS, label="Todas las Guías")
+
+    btn_login.click(login, [user_in, pass_in], [msg_login, tab_nueva, tab_rastrear, tab_actualizar, tab_todas, login_box])
+    btn_crear.click(crear_guia, [remitente, destinatario, origen, destino, peso, valor, telefono], [res_crear, tabla1])
+    btn_r.click(rastrear, [cod_r], [res_r])
+    btn_a.click(actualizar, [cod_a, estado_a], [res_a, tabla2])
+    btn_t.click(lambda: cargar_df().values.tolist(), [], [tabla3])
 
 demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
