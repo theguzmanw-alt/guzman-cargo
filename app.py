@@ -6,10 +6,9 @@ from datetime import datetime
 ARCHIVO = "guias.csv"
 COLUMNAS = ["Guia","Fecha","Remitente","Destinatario","Origen","Destino","Peso","Valor","Estado","Telefono"]
 
-# === CAMBIA ESTAS CLAVES ===
+# === TUS CLAVES ===
 CLAVE_JEFE = "guzman2026"
 CLAVE_REPARTIDOR = "reparto2026"
-CLAVE_cliente = "cliente2026"
 
 def cargar_df():
     if not os.path.exists(ARCHIVO):
@@ -40,7 +39,7 @@ def crear_guia(remitente, destinatario, origen, destino, peso, valor, telefono):
     nueva = pd.DataFrame([[codigo, fecha, remitente, destinatario, origen, destino, peso, valor, "En Bodega", telefono]], columns=COLUMNAS)
     df = pd.concat([df, nueva], ignore_index=True)
     guardar_df(df)
-    return f"✅ Guía creada: {codigo} | {remitente} -> {destinatario}", df.values.tolist(), dinero_por_cobrar()
+    return f"✅ Guía creada: {codigo} | {remitente} -> {destinatario}", df.values.tolist()
 
 def pedir_envio(nombre, telefono, recoge, entrega, que_es):
     df = cargar_df()
@@ -72,10 +71,7 @@ def actualizar(codigo, nuevo_estado):
 
 def lista_hoy():
     df = cargar_df()
-    hoy = datetime.now().strftime("%Y-%m-%d")
-    pendientes = df[(df["Estado"].isin(["En Bodega","En Camino","En Reparto","Solicitud Nueva"])) & (df["Fecha"].str.contains(hoy, na=False) | True)]
-    if pendientes.empty:
-        return "🎉 No tienes entregas pendientes"
+    pendientes = df[df["Estado"].isin(["En Bodega","En Camino","En Reparto","Solicitud Nueva"])]
     return pendientes.values.tolist()
 
 def login(usuario, clave):
@@ -96,7 +92,6 @@ button.primary {background:#25D366 !important; border:none !important; color:whi
 with gr.Blocks(title="GUZMAN CARGO", css=CSS) as demo:
     gr.Markdown("# 🚚 GUZMAN CARGO\n### Cartagena | Rápido, Seguro y Confiable")
     
-    # --- CLIENTE - SIEMPRE VISIBLE, SIN CLAVE ---
     gr.Markdown("## 👤 SOY CLIENTE")
     with gr.Tab("📦 Rastrear Mi Paquete"):
         cod_r = gr.Textbox(label="Tu código", placeholder="Ej: GC-1001")
@@ -128,7 +123,6 @@ with gr.Blocks(title="GUZMAN CARGO", css=CSS) as demo:
         res_pedir = gr.Textbox(label="Resultado", lines=5)
         btn_pedir.click(pedir_envio, [p_nombre, p_tel, p_recoge, p_entrega, p_que], [res_pedir])
 
-    # --- PERSONAL ---
     gr.Markdown("---\n## 🔐 SOLO PERSONAL GUZMAN CARGO")
     with gr.Column() as login_box:
         user_in = gr.Textbox(label="Usuario", placeholder="Escribe tu usuario")
@@ -147,7 +141,7 @@ with gr.Blocks(title="GUZMAN CARGO", css=CSS) as demo:
         btn_crear = gr.Button("Generar Guía", variant="primary")
         res_crear = gr.Textbox(label="Resultado")
         tabla1 = gr.Dataframe(headers=COLUMNAS, label="Guías")
-        btn_crear.click(crear_guia, [remitente, destinatario, origen, destino, peso, valor, telefono], [res_crear, tabla1, dinero_txt])
+        btn_crear.click(crear_guia, [remitente, destinatario, origen, destino, peso, valor, telefono], [res_crear, tabla1])
 
     with gr.Tab("💰 JEFE - Dinero y Resumen", visible=False) as tab_dinero:
         dinero_txt = gr.Textbox(label="Resumen", lines=5, value=dinero_por_cobrar())
